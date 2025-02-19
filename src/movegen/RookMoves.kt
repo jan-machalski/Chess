@@ -19,13 +19,14 @@ object RookMoves {
 
         while(rooks != 0uL){
             val from = rooks.countTrailingZeroBits()
+            val movedPiece = if((1uL shl from) and state.queens != 0uL) Move.PROMOTION_QUEEN else Move.PROMOTION_ROOK
             val blockers = ROOK_BLOCKER_MASKS[from] and allPieces
             var possibleMoves = ROOK_ATTACKS_LOOKUP[from][((ROOK_MAGIC_NUMBERS[from] * blockers) shr ROOK_MAGIC_SHIFTS[from]).toInt()]
             possibleMoves = possibleMoves and ourPieces.inv()
 
             while(possibleMoves != 0uL){
                 val to = possibleMoves.countTrailingZeroBits()
-                moves.add(Move.create(from, to,Move.PIECE_ROOK))
+                moves.add(Move.create(from, to,movedPiece))
                 possibleMoves = possibleMoves and (possibleMoves - 1uL)
             }
             rooks = rooks and (rooks - 1uL)

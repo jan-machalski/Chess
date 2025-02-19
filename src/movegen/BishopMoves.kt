@@ -23,13 +23,14 @@ object BishopMoves {
 
         while(bishops != 0uL){
             val from = bishops.countTrailingZeroBits()
+            val movedPiece = if((1uL shl from) and state.queens != 0uL) Move.PROMOTION_QUEEN else Move.PROMOTION_BISHOP
             val blockers = BISHOP_BLOCKER_MASKS[from] and allPieces
             var possibleMoves = BISHOP_ATTACKS_LOOKUP[from][((blockers * BISHOP_MAGIC_NUMBERS[from]) shr BISHOP_MAGIC_SHIFTS[from]).toInt()]
             possibleMoves = possibleMoves and ourPieces.inv()
 
             while(possibleMoves != 0uL){
                 val to = possibleMoves.countTrailingZeroBits()
-                moves.add(Move.create(from,to,Move.PIECE_BISHOP))
+                moves.add(Move.create(from,to,movedPiece))
                 possibleMoves = possibleMoves and (possibleMoves - 1uL)
             }
             bishops = bishops and (bishops - 1uL)
