@@ -7,8 +7,8 @@ import movegen.RookMoves.ROOK_MAGIC_SHIFTS
 
 object MoveGenerator {
 
-    private val PINNED_MOVES_LOOKUP = precomputePinnedMoves()
-    private val BLOCK_MOVES_LOOKUP = precomputeBlockMoves()
+    val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [kingPos][piecePos][]
+    val BLOCK_MOVES_LOOKUP = precomputeBlockMoves()
     private const val RANK_4 = 0x00000000FF000000uL
     private const val RANK_5 = 0x000000FF00000000uL
 
@@ -27,6 +27,7 @@ object MoveGenerator {
 
         val checkingFigures = getChecks(state,kingPos)
         val checkingFiguresCount = checkingFigures.countOneBits()
+
         if(checkingFiguresCount > 1)
             return legalMoves
 
@@ -34,21 +35,24 @@ object MoveGenerator {
         val enPassantTargetPos = state.enPassantTarget.countTrailingZeroBits()
 
         val pinnedPieces = getPinnedPieces(state)
+        var potentialCapturedPiece = -1
 
         for(move in pseudoLegalMoves) {
-
+            potentialCapturedPiece = move.to
             if((1uL shl move.from) and pinnedPieces != 0uL){
-                if(PINNED_MOVES_LOOKUP[kingPos][move.from][move.to] == false)
-                    continue
-            }
-            if(checkingFiguresCount == 1){
-                if(BLOCK_MOVES_LOOKUP[kingPos][checkingFigurePos][move.to] == false)
+                if(!PINNED_MOVES_LOOKUP[kingPos][move.from][move.to])
                     continue
             }
             if(move.to == enPassantTargetPos && move.pieceType == Move.PIECE_PAWN){
-               if(isEnPassantValid(state,move) == false)
-                   continue
+                potentialCapturedPiece = if(state.whiteToMove) move.to - 8 else move.to + 8
+                if(!isEnPassantValid(state,move))
+                    continue
             }
+            if(checkingFiguresCount == 1){
+                if(!(BLOCK_MOVES_LOOKUP[kingPos][checkingFigurePos][move.to] || BLOCK_MOVES_LOOKUP[kingPos][checkingFigurePos][potentialCapturedPiece]))
+                    continue
+            }
+
 
             legalMoves.add(move)
         }
@@ -61,20 +65,19 @@ object MoveGenerator {
         val ourKingPos = ourKing.countTrailingZeroBits()
         val opponentPieces = if(state.whiteToMove) state.blackPieces else state.whitePieces
 
-        var opponentRooks = opponentPieces and (state.rooks or state.queens)
-        var opponentBishops = opponentPieces and (state.bishops or state.queens)
+        var opponentRooks = opponentPieces and (state.rooks or state.queens) and RookMoves.ROW_COLUMN_MASKS[ourKingPos]
+        var opponentBishops = opponentPieces and (state.bishops or state.queens) and BishopMoves.DIAGONAL_MASKS[ourKingPos]
 
         val potentialRookBlockers = RookMoves.getAttackedFieldsMask(state,ourKingPos)
         val potentialBishopBlockers = BishopMoves.getAttackedFieldsMask(state,ourKingPos)
 
-        var pinnedPieces = 0uL
         var rookAttackedPieces = 0uL
         while(opponentRooks != 0uL){
             val pos = opponentRooks.countTrailingZeroBits()
             rookAttackedPieces = rookAttackedPieces or RookMoves.getAttackedFieldsMask(state,pos)
             opponentRooks = opponentRooks and (opponentRooks - 1uL)
         }
-        pinnedPieces = rookAttackedPieces and potentialRookBlockers
+        var pinnedPieces = rookAttackedPieces and potentialRookBlockers
 
         var bishopAttackedPieces = 0uL
         while(opponentBishops != 0uL){
@@ -92,7 +95,7 @@ object MoveGenerator {
         for (move in moves) {
             if (isCastleMove(state, move)) {
                 var isValidCastle = true
-                val range = if (move.to < move.from) (move.to - 1)..move.from else move.from..move.to
+                val range = if (move.to < move.from) move.to..move.from else move.from..move.to
 
                 for (pos in range) {
                     if (getChecks(state, pos) != 0uL) {
@@ -145,7 +148,7 @@ object MoveGenerator {
         val opponentPieces = if(state.whiteToMove) state.blackPieces else state.whitePieces
         val rankToCheck = if(state.whiteToMove) RANK_5 else RANK_4
         val attackingOurPawn = RookMoves.getAttackedFieldsMask(state,move.from) and rankToCheck
-        val attackingOpponentsPawn = RookMoves.getAttackedFieldsMask(state,move.to - 8) and rankToCheck
+        val attackingOpponentsPawn = RookMoves.getAttackedFieldsMask(state,if(state.whiteToMove) move.to - 8 else move.to+8) and rankToCheck
 
         if((attackingOurPawn and ourPieces and state.kings != 0uL && attackingOpponentsPawn and opponentPieces and (state.rooks or state.queens) != 0uL) ||
             (attackingOpponentsPawn and ourPieces and state.kings != 0uL && attackingOurPawn and opponentPieces and (state.rooks or state.queens) != 0uL))
@@ -178,7 +181,6 @@ object MoveGenerator {
             while (pos in 0..63) {
                 pinnedMask = pinnedMask or (1uL shl pos)
                 pos += step
-                if (pos == piecePos) break
             }
             return pinnedMask
         }
@@ -189,20 +191,20 @@ object MoveGenerator {
             while (pos / 8 == kingPos / 8) {
                 pinnedMask = pinnedMask or (1uL shl pos)
                 pos += step
-                if (pos == piecePos) break
             }
             return pinnedMask
         }
 
         if (sameDiagonal(kingPos, piecePos)) {
-            val step = if ((kingPos - piecePos) % 9 == 0) 9 else 7
-            var pos = kingPos
-            while (pos in 0..63 && pos % 8 != 0 && pos % 8 != 7) {
+            var step = if ((kingPos - piecePos) % 9 == 0) 9 else 7
+            if(kingPos > piecePos)
+                step = -step
+            var pos = kingPos + step
+            while (pos in 8..55 && pos % 8 != 0 && pos % 8 != 7) {
                 pinnedMask = pinnedMask or (1uL shl pos)
                 pos += step
-                if (pos == piecePos) break
             }
-            return pinnedMask
+            return pinnedMask or (1uL shl pos)
         }
 
         return 0uL
@@ -227,6 +229,10 @@ object MoveGenerator {
     private fun computeBlockMoves(kingPos: Int, attackerPos: Int): ULong {
         var blockMask = 0uL
 
+        if (isKnightJump(kingPos, attackerPos)) {
+            return 1uL shl attackerPos
+        }
+
         if (sameFile(kingPos, attackerPos)) {
             val step = if (attackerPos > kingPos) 8 else -8
             var pos = kingPos + step
@@ -249,8 +255,8 @@ object MoveGenerator {
 
         if (sameDiagonal(kingPos, attackerPos)) {
             val step = if ((kingPos - attackerPos) % 9 == 0) 9 else 7
-            var pos = kingPos + step
-            while (pos in 0..63 && pos % 8 != 0 && pos % 8 != 7 && pos != attackerPos) {
+            var pos = step + minOf(attackerPos, kingPos)
+            while (pos != maxOf(attackerPos, kingPos)) {
                 blockMask = blockMask or (1uL shl pos)
                 pos += step
             }
@@ -263,4 +269,10 @@ object MoveGenerator {
     private fun sameFile(a: Int, b: Int) = (a % 8) == (b % 8)
     private fun sameRank(a: Int, b: Int) = (a / 8) == (b / 8)
     private fun sameDiagonal(a: Int, b: Int) = ((a - b) % 9 == 0) || ((a - b) % 7 == 0)
+    private fun isKnightJump(kingPos: Int, attackerPos: Int): Boolean {
+        val fileDiff = kotlin.math.abs((kingPos % 8) - (attackerPos % 8))
+        val rankDiff = kotlin.math.abs((kingPos / 8) - (attackerPos / 8))
+
+        return (fileDiff == 1 && rankDiff == 2) || (fileDiff == 2 && rankDiff == 1)
+    }
 }

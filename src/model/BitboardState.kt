@@ -30,11 +30,12 @@ data class BitboardState(
         // capture
         if(opponentPieces and toMask != 0uL){
             isCapture = true
-            newState.pawns = newState.pawns xor toMask
-            newState.knights = newState.knights xor toMask
-            newState.bishops = newState.bishops xor toMask
-            newState.rooks = newState.rooks xor toMask
-            newState.queens = newState.queens xor toMask
+            val invMask = toMask.inv()
+            newState.pawns = newState.pawns and invMask
+            newState.knights = newState.knights and invMask
+            newState.bishops = newState.bishops and invMask
+            newState.rooks = newState.rooks and invMask
+            newState.queens = newState.queens and invMask
             if(isWhite)
                 newState.blackPieces = newState.blackPieces xor toMask
             else
@@ -49,6 +50,12 @@ data class BitboardState(
             Move.PIECE_ROOK -> newState.rooks = newState.rooks xor moveMask
             Move.PIECE_QUEEN -> newState.queens = newState.queens xor moveMask
             Move.PIECE_KING -> newState.kings = newState.kings xor moveMask
+        }
+        if(isWhite){
+            newState.whitePieces = newState.whitePieces xor moveMask
+        }
+        else{
+            newState.blackPieces = newState.blackPieces xor moveMask
         }
 
         // en passant capture
@@ -66,12 +73,12 @@ data class BitboardState(
         if (move.pieceType == Move.PIECE_PAWN) {
             val diff = move.from - move.to
             if (diff == 16 || diff == -16) {
-                newState.enPassantTarget = if (isWhite) (1uL shl (move.to + 8)) else (1uL shl (move.to - 8))
+                newState.enPassantTarget = if (isWhite) (1uL shl (move.to - 8)) else (1uL shl (move.to + 8))
             }
         }
 
         if(move.pieceType == Move.PIECE_KING){
-            newState.castlingRights = newState.castlingRights and (if (isWhite) 0b1100 else 0b0011).inv()
+            newState.castlingRights = newState.castlingRights and (if (isWhite) 0b1100 else 0b0011)
 
             if (move.from == 4 && move.to == 6) {
                 newState.rooks = newState.rooks xor (1uL shl 7) xor (1uL shl 5)
@@ -93,11 +100,17 @@ data class BitboardState(
 
         if (move.pieceType == Move.PIECE_ROOK) {
             when (move.from) {
-                0 -> newState.castlingRights = newState.castlingRights and 0b1110
-                7 -> newState.castlingRights = newState.castlingRights and 0b1101
-                56 -> newState.castlingRights = newState.castlingRights and 0b1011
-                63 -> newState.castlingRights = newState.castlingRights and 0b0111
+                0 -> newState.castlingRights = newState.castlingRights and 0b1101
+                7 -> newState.castlingRights = newState.castlingRights and 0b1110
+                56 -> newState.castlingRights = newState.castlingRights and 0b0111
+                63 -> newState.castlingRights = newState.castlingRights and 0b1011
             }
+        }
+        when(move.to){
+            0 -> newState.castlingRights = newState.castlingRights and 0b1101
+            7 -> newState.castlingRights = newState.castlingRights and 0b1110
+            56 -> newState.castlingRights = newState.castlingRights and 0b0111
+            63 -> newState.castlingRights = newState.castlingRights and 0b1011
         }
 
         // promotion

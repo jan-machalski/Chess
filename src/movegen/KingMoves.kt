@@ -69,8 +69,8 @@ object KingMoves {
 
         moves = moves or (bitboard shl 8)
         moves = moves or (bitboard shr 8)
-        moves = moves or (((bitboard and notAFile) shl 1) )
-        moves = moves or (((bitboard and notHFile) shr 1) )
+        moves = moves or (((bitboard and notAFile) shr 1) )
+        moves = moves or (((bitboard and notHFile) shl 1) )
         moves = moves or (((bitboard and notHFile) shl 9) )
         moves = moves or (((bitboard and notAFile) shl 7) )
         moves = moves or (((bitboard and notAFile) shr 9) )

@@ -73,10 +73,10 @@ object PawnMoves {
     private fun addPromotionMoves(moves: MutableList<Move>, from: Int, to: Int, isWhite: Boolean) {
         val isPromotion = (isWhite && to in 56..63) || (!isWhite && to in 0..7)
         if (isPromotion) {
-            moves.add(Move.create(from, to, Move.PROMOTION_QUEEN))
-            moves.add(Move.create(from, to, Move.PROMOTION_ROOK))
-            moves.add(Move.create(from, to, Move.PROMOTION_BISHOP))
-            moves.add(Move.create(from, to, Move.PROMOTION_KNIGHT))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_QUEEN))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_ROOK))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_BISHOP))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_KNIGHT))
         } else {
             moves.add(Move.create(from, to,Move.PIECE_PAWN))
         }

@@ -30,7 +30,7 @@ object BoardRenderer {
                 }
 
                 if ((pieceBitboard and bit) != 0uL) {
-                    boardArray[rank][file] = if ((state.whitePieces and bit) != 0uL) symbol.first else symbol.second
+                    boardArray[rank][file] = if ((state.blackPieces and bit) != 0uL) symbol.second else symbol.first
                 }
             }
         }
