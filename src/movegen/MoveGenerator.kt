@@ -7,23 +7,21 @@ import movegen.RookMoves.ROOK_MAGIC_SHIFTS
 
 object MoveGenerator {
 
-    val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [kingPos][piecePos][]
-    val BLOCK_MOVES_LOOKUP = precomputeBlockMoves()
+    private val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [kingPos][piecePos][field]
+    private val BLOCK_MOVES_LOOKUP = precomputeBlockMoves() //[kingPos][attackerPos][field]
+    private val SINGLE_BIT_MASKS = precomputeSingleBitMasks()
     private const val RANK_4 = 0x00000000FF000000uL
     private const val RANK_5 = 0x000000FF00000000uL
+    private val KING_CASTLE_MOVES = listOf(2, 6, 58, 62)
 
     fun generateLegalMoves(state: BitboardState): List<Move> {
         val legalMoves = mutableListOf<Move>()
 
-        val kingPos = (state.kings and if(state.whiteToMove) state.whitePieces else state.blackPieces).countTrailingZeroBits()
+        val isWhite = state.whiteToMove
+        val kingPos = (state.kings and if(isWhite) state.whitePieces else state.blackPieces).countTrailingZeroBits()
         val kingMoves = KingMoves.generateKingMoves(state)
-        legalMoves.addAll(filterKingMoves(state,kingMoves))
 
-        val pseudoLegalMoves = mutableListOf<Move>()
-        pseudoLegalMoves.addAll(KnightMoves.generateKnightMoves(state))
-        pseudoLegalMoves.addAll(RookMoves.generateRookMoves(state))
-        pseudoLegalMoves.addAll(BishopMoves.generateBishopMoves(state))
-        pseudoLegalMoves.addAll(PawnMoves.generatePawnMoves(state))
+        legalMoves.addAll(filterKingMoves(state,kingMoves))
 
         val checkingFigures = getChecks(state,kingPos)
         val checkingFiguresCount = checkingFigures.countOneBits()
@@ -31,20 +29,26 @@ object MoveGenerator {
         if(checkingFiguresCount > 1)
             return legalMoves
 
+        val pseudoLegalMoves = mutableListOf<Move>()
+        pseudoLegalMoves.addAll(KnightMoves.generateKnightMoves(state))
+        pseudoLegalMoves.addAll(RookMoves.generateRookMoves(state))
+        pseudoLegalMoves.addAll(BishopMoves.generateBishopMoves(state))
+        pseudoLegalMoves.addAll(PawnMoves.generatePawnMoves(state))
+
         val checkingFigurePos = checkingFigures.countTrailingZeroBits()
         val enPassantTargetPos = state.enPassantTarget.countTrailingZeroBits()
 
         val pinnedPieces = getPinnedPieces(state)
-        var potentialCapturedPiece = -1
+        var potentialCapturedPiece:Int
 
         for(move in pseudoLegalMoves) {
             potentialCapturedPiece = move.to
-            if((1uL shl move.from) and pinnedPieces != 0uL){
+            if((SINGLE_BIT_MASKS[move.from]) and pinnedPieces != 0uL){
                 if(!PINNED_MOVES_LOOKUP[kingPos][move.from][move.to])
                     continue
             }
             if(move.to == enPassantTargetPos && move.pieceType == Move.PIECE_PAWN){
-                potentialCapturedPiece = if(state.whiteToMove) move.to - 8 else move.to + 8
+                potentialCapturedPiece = if(isWhite) move.to - 8 else move.to + 8
                 if(!isEnPassantValid(state,move))
                     continue
             }
@@ -52,7 +56,6 @@ object MoveGenerator {
                 if(!(BLOCK_MOVES_LOOKUP[kingPos][checkingFigurePos][move.to] || BLOCK_MOVES_LOOKUP[kingPos][checkingFigurePos][potentialCapturedPiece]))
                     continue
             }
-
 
             legalMoves.add(move)
         }
@@ -75,7 +78,7 @@ object MoveGenerator {
         while(opponentRooks != 0uL){
             val pos = opponentRooks.countTrailingZeroBits()
             rookAttackedPieces = rookAttackedPieces or RookMoves.getAttackedFieldsMask(state,pos)
-            opponentRooks = opponentRooks and (opponentRooks - 1uL)
+            opponentRooks = opponentRooks xor SINGLE_BIT_MASKS[pos]
         }
         var pinnedPieces = rookAttackedPieces and potentialRookBlockers
 
@@ -83,7 +86,7 @@ object MoveGenerator {
         while(opponentBishops != 0uL){
             val pos = opponentBishops.countTrailingZeroBits()
             bishopAttackedPieces = bishopAttackedPieces or BishopMoves.getAttackedFieldsMask(state,pos)
-            opponentBishops = opponentBishops and (opponentBishops - 1uL)
+            opponentBishops = opponentBishops xor SINGLE_BIT_MASKS[pos]
         }
         pinnedPieces = pinnedPieces or (bishopAttackedPieces and potentialBishopBlockers)
 
@@ -92,13 +95,15 @@ object MoveGenerator {
 
     private fun filterKingMoves(state: BitboardState, moves:List<Move>): List<Move> {
         val legalMoves = mutableListOf<Move>()
+        val attackedFieldsMask = getAttackedFields(state)
+
         for (move in moves) {
             if (isCastleMove(state, move)) {
                 var isValidCastle = true
                 val range = if (move.to < move.from) move.to..move.from else move.from..move.to
 
                 for (pos in range) {
-                    if (getChecks(state, pos) != 0uL) {
+                    if (SINGLE_BIT_MASKS[pos] and attackedFieldsMask != 0uL) {
                         isValidCastle = false
                         break
                     }
@@ -108,12 +113,13 @@ object MoveGenerator {
                     legalMoves.add(move)
                 }
             }
-            else if(getChecks(state,move.to) == 0uL)
+            else if(SINGLE_BIT_MASKS[move.to] and attackedFieldsMask == 0uL)
                 legalMoves.add(move)
         }
         return legalMoves
     }
 
+    // return fields from which our king can be attacked
     private fun getChecks(state: BitboardState, kingPos: Int): ULong{
         var checks = 0uL
         val opponentPieces = if(state.whiteToMove) state.blackPieces else state.whitePieces
@@ -135,12 +141,56 @@ object MoveGenerator {
 
         return checks
     }
+    //return mask of fields currently controlled by the opponent
+    private fun getAttackedFields(state:BitboardState):ULong{
+        var attackedFields = 0uL
+        val isWhite = state.whiteToMove
+        val opponentPieces = if(isWhite) state.blackPieces else state.whitePieces
+
+        val oppKing = opponentPieces and state.kings
+        attackedFields = attackedFields or KingMoves.KING_MOVES[oppKing.countTrailingZeroBits()]
+
+        val ourKing = state.kings xor oppKing
+        state.kings = oppKing
+        if(isWhite) state.whitePieces = state.whitePieces xor ourKing else state.blackPieces = state.blackPieces xor ourKing
+
+        var pawns = opponentPieces and state.pawns
+        while(pawns != 0uL){
+            val field = pawns.countTrailingZeroBits()
+            attackedFields = attackedFields or if(isWhite) PawnMoves.PAWN_ATTACKS_BLACK[field] else PawnMoves.PAWN_ATTACKS_WHITE[field]
+            pawns = pawns xor SINGLE_BIT_MASKS[field]
+        }
+
+        var knights = opponentPieces and state.knights
+        while(knights != 0uL){
+            val field = knights.countTrailingZeroBits()
+            attackedFields = attackedFields or KnightMoves.KNIGHT_MOVES[field]
+            knights = knights xor SINGLE_BIT_MASKS[field]
+        }
+
+        var rooks = opponentPieces and (state.rooks or state.queens)
+        while(rooks != 0uL){
+            val field = rooks.countTrailingZeroBits()
+            attackedFields = attackedFields or RookMoves.getAttackedFieldsMask(state,field)
+            rooks = rooks xor SINGLE_BIT_MASKS[field]
+        }
+
+        var bishops = opponentPieces and (state.bishops or state.queens)
+        while(bishops != 0uL){
+            val field = bishops.countTrailingZeroBits()
+            attackedFields = attackedFields or BishopMoves.getAttackedFieldsMask(state,field)
+            bishops = bishops xor SINGLE_BIT_MASKS[field]
+        }
+
+        state.kings = ourKing or oppKing
+        if(isWhite) state.whitePieces = state.whitePieces or ourKing else state.blackPieces = state.blackPieces or ourKing
+        return attackedFields
+    }
 
     private fun isCastleMove(state: BitboardState, move: Move): Boolean {
         val kingStartPos = if (state.whiteToMove) 4 else 60
-        val kingCastleMoves = listOf(2, 6, 58, 62)
 
-        return move.from == kingStartPos && move.to in kingCastleMoves
+        return move.from == kingStartPos && move.to in KING_CASTLE_MOVES
     }
 
     private fun isEnPassantValid(state: BitboardState, move: Move): Boolean {
@@ -264,6 +314,11 @@ object MoveGenerator {
         }
 
         return 0uL
+    }
+    private fun precomputeSingleBitMasks():Array<ULong>{
+        var bitMasks = Array(64) {0uL}
+        for(i in 0..63) bitMasks[i] = 1uL shl i
+        return bitMasks
     }
 
     private fun sameFile(a: Int, b: Int) = (a % 8) == (b % 8)

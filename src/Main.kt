@@ -5,7 +5,7 @@ import movegen.RookMoves.ROOK_MAGIC_NUMBERS
 import movegen.RookMoves.ROOK_MAGIC_SHIFTS
 
 fun main() {
-    val fen = "8/8/3p4/1Pp3kr/1K3R2/8/4P1P1/8 w - c6 0 3"
+    val fen = "8/6kR/8/8/8/bq6/1rqqqqqq/K1nqnbrq b - - 0 1"
     var state = FenParser.fenToBitboard(fen)
     BoardRenderer.drawBoard(state)
     println(MoveGenerator.generateLegalMoves(state))

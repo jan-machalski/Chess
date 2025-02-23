@@ -8,6 +8,7 @@ import movegen.RookMoves.ROOK_MAGIC_NUMBERS
 import movegen.RookMoves.ROOK_MAGIC_SHIFTS
 
 object BishopMoves {
+    private val SINGLE_BIT_MASKS = Array(64){1uL shl it}
     val BISHOP_BLOCKER_MASKS = precomputeBishopMasks()
     val BISHOP_MAGIC_SHIFTS = computeShifts()
     val BISHOP_MAGIC_NUMBERS = arrayOf(
@@ -24,7 +25,7 @@ object BishopMoves {
 
         while(bishops != 0uL){
             val from = bishops.countTrailingZeroBits()
-            val movedPiece = if((1uL shl from) and state.queens != 0uL) Move.PIECE_QUEEN else Move.PIECE_BISHOP
+            val movedPiece = if(SINGLE_BIT_MASKS[from] and state.queens != 0uL) Move.PIECE_QUEEN else Move.PIECE_BISHOP
             val blockers = BISHOP_BLOCKER_MASKS[from] and allPieces
             var possibleMoves = BISHOP_ATTACKS_LOOKUP[from][((blockers * BISHOP_MAGIC_NUMBERS[from]) shr BISHOP_MAGIC_SHIFTS[from]).toInt()]
             possibleMoves = possibleMoves and ourPieces.inv()
@@ -102,7 +103,7 @@ object BishopMoves {
         var bitCount = 0
 
         while (bits != 0uL) {
-            val lsb = 1uL shl bits.countTrailingZeroBits()
+            val lsb = SINGLE_BIT_MASKS[bits.countTrailingZeroBits()]
             if ((idx and (1 shl bitCount)) != 0) {
                 blockers = blockers or lsb
             }
