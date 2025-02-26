@@ -4,8 +4,8 @@ import model.BitboardState
 
 object BitboardAnalyzer {
     internal val SINGLE_BIT_MASKS = Array(64){1uL shl it}
-    internal val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [kingPos][piecePos][field]
-    internal val BLOCK_MOVES_LOOKUP = precomputeBlockMoves() //[kingPos][attackerPos][field]
+    internal val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [kingPos][move.from][move.to]
+    internal val BLOCK_MOVES_LOOKUP = precomputeBlockMoves() //[kingPos][attackerPos][move.to], true if such move prevents check
 
     internal fun getPinnedPieces(state: BitboardState): ULong{
         val ourPieces = if(state.whiteToMove) state.whitePieces else state.blackPieces
@@ -160,7 +160,7 @@ object BitboardAnalyzer {
     }
 
     private fun precomputeBlockMoves(): Array<Array<Array<Boolean>>> {
-        val blockMoves = Array(64) { Array(64) { Array(64) { false } } }
+        val blockMoves = Array(64) { Array(65) { Array(64) { false } } }
 
         for (kingPos in 0 until 64) {
             for (attackerPos in 0 until 64) {
@@ -171,6 +171,7 @@ object BitboardAnalyzer {
                     }
                 }
             }
+            for(targetPos in 0 until 64) blockMoves[kingPos][64][targetPos] = true
         }
         return blockMoves
     }

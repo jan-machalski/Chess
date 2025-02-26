@@ -16,28 +16,29 @@ object BishopMoves {
     val BISHOP_ATTACKS_LOOKUP = precomputeBishopAttacks()
     val DIAGONAL_MASKS = computeDiagonalMasks()
 
-    fun generateBishopMoves(state: BitboardState): List<Move>{
-        val moves = mutableListOf<Move>()
+    fun generateBishopMoves(state: BitboardState,pinnedPieces: ULong, moves: MutableList<Move>, checkingFigurePos: Int){
         val isWhite = state.whiteToMove
         var bishops = state.bishops or state.queens and if(isWhite) state.whitePieces else state.blackPieces
         val ourPieces = if(isWhite) state.whitePieces else state.blackPieces
-        val allPieces = state.whitePieces or state.blackPieces
+        val ourKingPos = (ourPieces and state.kings).countTrailingZeroBits()
 
         while(bishops != 0uL){
             val from = bishops.countTrailingZeroBits()
             val movedPiece = if(SINGLE_BIT_MASKS[from] and state.queens != 0uL) Move.PIECE_QUEEN else Move.PIECE_BISHOP
-            val blockers = BISHOP_BLOCKER_MASKS[from] and allPieces
-            var possibleMoves = BISHOP_ATTACKS_LOOKUP[from][((blockers * BISHOP_MAGIC_NUMBERS[from]) shr BISHOP_MAGIC_SHIFTS[from]).toInt()]
-            possibleMoves = possibleMoves and ourPieces.inv()
+            val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
+            var possibleMoves = getAttackedFieldsMask(state,from) and ourPieces.inv()
 
             while(possibleMoves != 0uL){
                 val to = possibleMoves.countTrailingZeroBits()
-                moves.add(Move.create(from,to,movedPiece))
+                if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
+                    (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
+                    moves.add(Move.create(from, to, movedPiece))
+                }
                 possibleMoves = possibleMoves and (possibleMoves - 1uL)
             }
             bishops = bishops and (bishops - 1uL)
         }
-        return moves
+
     }
 
     private fun precomputeBishopMasks():Array<ULong>{

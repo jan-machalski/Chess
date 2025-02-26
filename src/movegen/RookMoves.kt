@@ -4,7 +4,6 @@ import model.Move
 import model.BitboardState
 
 object RookMoves {
-    private val SINGLE_BIT_MASKS = Array(64){1uL shl it}
     val ROOK_BLOCKER_MASKS = precomputeRookMasks()
     val ROOK_MAGIC_SHIFTS = computeShifts()
     val ROOK_MAGIC_NUMBERS = arrayOf(
@@ -12,28 +11,30 @@ object RookMoves {
     val ROOK_ATTACKS_LOOKUP = precomputeRookAttacks()
     val ROW_COLUMN_MASKS = computeRowColumnMasks()
 
-    fun generateRookMoves(state: BitboardState): List<Move>{
-        val moves = mutableListOf<Move>()
+    fun generateRookMoves(state: BitboardState,pinnedPieces: ULong, moves: MutableList<Move>, checkingFigurePos: Int) {
         val isWhite = state.whiteToMove
         var rooks = state.rooks or state.queens and if(isWhite) state.whitePieces else state.blackPieces
         val ourPieces = if(isWhite) state.whitePieces else state.blackPieces
-        val allPieces = state.blackPieces or state.whitePieces
+        val ourKingPos = (ourPieces and state.kings).countTrailingZeroBits()
 
         while(rooks != 0uL){
             val from = rooks.countTrailingZeroBits()
-            val movedPiece = if(SINGLE_BIT_MASKS[from] and state.queens != 0uL) Move.PIECE_QUEEN else Move.PIECE_ROOK
-            val blockers = ROOK_BLOCKER_MASKS[from] and allPieces
-            var possibleMoves = ROOK_ATTACKS_LOOKUP[from][((ROOK_MAGIC_NUMBERS[from] * blockers) shr ROOK_MAGIC_SHIFTS[from]).toInt()]
-            possibleMoves = possibleMoves and ourPieces.inv()
+            val movedPiece = if(BitboardAnalyzer.SINGLE_BIT_MASKS[from] and state.queens != 0uL) Move.PIECE_QUEEN else Move.PIECE_ROOK
+            val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
+            var possibleMoves = getAttackedFieldsMask(state,from) and ourPieces.inv()
 
             while(possibleMoves != 0uL){
                 val to = possibleMoves.countTrailingZeroBits()
-                moves.add(Move.create(from, to,movedPiece))
+
+                if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
+                    (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
+                    moves.add(Move.create(from, to, movedPiece))
+                }
                 possibleMoves = possibleMoves and (possibleMoves - 1uL)
             }
             rooks = rooks and (rooks - 1uL)
         }
-        return moves
+
     }
 
     private fun precomputeRookMasks(): Array<ULong>{
@@ -49,11 +50,11 @@ object RookMoves {
         val file = square % 8
         val rank = square / 8
 
-        for (i in file + 1 until 7) mask = mask or SINGLE_BIT_MASKS[rank * 8 + i]
-        for (i in file -1 downTo 1) mask = mask or SINGLE_BIT_MASKS[rank * 8 + i]
+        for (i in file + 1 until 7) mask = mask or BitboardAnalyzer.SINGLE_BIT_MASKS[rank * 8 + i]
+        for (i in file -1 downTo 1) mask = mask or BitboardAnalyzer.SINGLE_BIT_MASKS[rank * 8 + i]
 
-        for (i in rank + 1 until 7) mask = mask or SINGLE_BIT_MASKS[8 * i + file]
-        for (i in rank -1 downTo 1) mask = mask or SINGLE_BIT_MASKS[8 * i + file]
+        for (i in rank + 1 until 7) mask = mask or BitboardAnalyzer.SINGLE_BIT_MASKS[8 * i + file]
+        for (i in rank -1 downTo 1) mask = mask or BitboardAnalyzer.SINGLE_BIT_MASKS[8 * i + file]
 
         return mask
     }
@@ -73,7 +74,7 @@ object RookMoves {
         var bitCount = 0
 
         while (bits != 0uL) {
-            val lsb = SINGLE_BIT_MASKS[bits.countTrailingZeroBits()]
+            val lsb = BitboardAnalyzer.SINGLE_BIT_MASKS[bits.countTrailingZeroBits()]
             if ((idx and (1 shl bitCount)) != 0) {
                 blockers = blockers or lsb
             }
@@ -88,20 +89,20 @@ object RookMoves {
         val rank = square / 8
 
         for(i in file + 1 until 8){
-            attacks = attacks or SINGLE_BIT_MASKS[rank * 8 + i]
-            if(blockers and SINGLE_BIT_MASKS[rank * 8 + i] != 0uL) break
+            attacks = attacks or BitboardAnalyzer.SINGLE_BIT_MASKS[rank * 8 + i]
+            if(blockers and BitboardAnalyzer.SINGLE_BIT_MASKS[rank * 8 + i] != 0uL) break
         }
         for(i in file -1 downTo 0){
-            attacks = attacks or SINGLE_BIT_MASKS[rank * 8 + i]
-            if(blockers and SINGLE_BIT_MASKS[rank * 8 + i] != 0uL) break
+            attacks = attacks or BitboardAnalyzer.SINGLE_BIT_MASKS[rank * 8 + i]
+            if(blockers and BitboardAnalyzer.SINGLE_BIT_MASKS[rank * 8 + i] != 0uL) break
         }
         for(i in rank + 1 until 8){
-            attacks = attacks or SINGLE_BIT_MASKS[i * 8 + file]
-            if(blockers and SINGLE_BIT_MASKS[i * 8 + file] != 0uL) break
+            attacks = attacks or BitboardAnalyzer.SINGLE_BIT_MASKS[i * 8 + file]
+            if(blockers and BitboardAnalyzer.SINGLE_BIT_MASKS[i * 8 + file] != 0uL) break
         }
         for(i in rank -1 downTo 0){
-            attacks = attacks or SINGLE_BIT_MASKS[i * 8 + file]
-            if(blockers and SINGLE_BIT_MASKS[i * 8 + file] != 0uL) break
+            attacks = attacks or BitboardAnalyzer.SINGLE_BIT_MASKS[i * 8 + file]
+            if(blockers and BitboardAnalyzer.SINGLE_BIT_MASKS[i * 8 + file] != 0uL) break
         }
         return attacks
     }

@@ -4,6 +4,8 @@ import model.BitboardState
 
 object PawnMoves {
     private const val RANK_2: ULong = 0x000000000000FF00uL
+    private const val RANK_4: ULong = 0x00000000FF000000uL
+    private const val RANK_5: ULong = 0x000000FF00000000uL
     private const val RANK_7: ULong = 0x00FF000000000000uL
     private const val FILE_A: ULong = 0x0101010101010101uL
     private const val FILE_H: ULong = 0x8080808080808080uL
@@ -11,10 +13,11 @@ object PawnMoves {
     val PAWN_ATTACKS_WHITE = precomputePawnAttacks(isWhite = true)
     val PAWN_ATTACKS_BLACK = precomputePawnAttacks(isWhite = false)
 
-    fun generatePawnMoves(state: BitboardState): List<Move> {
-        val moves = mutableListOf<Move>()
+    fun generatePawnMoves(state: BitboardState,pinnedPieces: ULong,moves:MutableList<Move>,checkingFigurePos:Int) {
         val isWhite = state.whiteToMove
-        val ourPawns = (if(isWhite) state.whitePieces else state.blackPieces) and state.pawns
+        val ourPieces = if(isWhite) state.whitePieces else state.blackPieces
+        val ourPawns = ourPieces and state.pawns
+        val ourKingPos = (state.kings and ourPieces).countTrailingZeroBits()
         val enemyPieces = if (isWhite) state.blackPieces else state.whitePieces
         val emptySquares = (state.whitePieces or state.blackPieces).inv()
 
@@ -26,7 +29,11 @@ object PawnMoves {
         while(singlePushes != 0uL){
             val to = singlePushes.countTrailingZeroBits()
             val from = to - shift
-            addPromotionMoves(moves, from, to,isWhite)
+            val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
+            if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
+                (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
+                addPromotionMoves(moves, from, to, isWhite)
+            }
             singlePushes = singlePushes and (singlePushes - 1uL)
         }
 
@@ -39,19 +46,21 @@ object PawnMoves {
         while(doublePushes != 0uL){
             val to = doublePushes.countTrailingZeroBits()
             val from = to - shift - shift
-            moves.add(Move.create(from,to,Move.PIECE_PAWN))
+            val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
+            if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
+                (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
+                moves.add(Move.create(from, to, Move.PIECE_PAWN))
+            }
             doublePushes = doublePushes and (doublePushes - 1uL)
         }
 
-        generateCaptures(moves, ourPawns, enemyPieces, leftCaptureShift, FILE_A.inv(), isWhite)
-        generateCaptures(moves, ourPawns, enemyPieces, rightCaptureShift, FILE_H.inv(), isWhite)
+        generateCaptures(moves, ourPawns, enemyPieces, leftCaptureShift, FILE_A.inv(), isWhite, ourKingPos, checkingFigurePos,pinnedPieces, false,state)
+        generateCaptures(moves, ourPawns, enemyPieces, rightCaptureShift, FILE_H.inv(), isWhite, ourKingPos, checkingFigurePos,pinnedPieces, false,state)
 
         if (state.enPassantTarget != 0uL) {
-            generateCaptures(moves, ourPawns, state.enPassantTarget, leftCaptureShift, FILE_A.inv(), isWhite)
-            generateCaptures(moves, ourPawns, state.enPassantTarget, rightCaptureShift, FILE_H.inv(), isWhite)
+            generateCaptures(moves, ourPawns, state.enPassantTarget, leftCaptureShift, FILE_A.inv(), isWhite, ourKingPos, checkingFigurePos,pinnedPieces, true,state)
+            generateCaptures(moves, ourPawns, state.enPassantTarget, rightCaptureShift, FILE_H.inv(), isWhite, ourKingPos, checkingFigurePos,pinnedPieces, true,state)
         }
-
-        return moves
     }
     private fun generateCaptures(
         moves: MutableList<Move>,
@@ -59,13 +68,26 @@ object PawnMoves {
         target: ULong,
         shift: Int,
         fileMask: ULong,
-        isWhite: Boolean
+        isWhite: Boolean,
+        ourKingPos: Int,
+        checkingFigurePos: Int,
+        pinnedPieces: ULong,
+        isEnPassant: Boolean,
+        state: BitboardState
     ) {
         var captures = if (isWhite) (pawns and fileMask) shl shift and target else (pawns and fileMask) shr -shift and target
         while (captures != 0uL) {
             val to = captures.countTrailingZeroBits()
             val from = to - shift
-            addPromotionMoves(moves, from, to, isWhite)
+            val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
+            val capturedPiece = if(isEnPassant) if(isWhite) to - 8 else to + 8 else to
+
+            if((BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] || BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][capturedPiece]) &&
+                (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
+
+                if(!isEnPassant || isEnPassantValid(state,from,to))
+                    addPromotionMoves(moves, from, to, isWhite)
+            }
             captures = captures and (captures - 1uL)
         }
     }
@@ -82,6 +104,19 @@ object PawnMoves {
         }
     }
 
+    private fun isEnPassantValid(state: BitboardState, from:Int, to:Int): Boolean {
+        val ourPieces = if(state.whiteToMove) state.whitePieces else state.blackPieces
+        val opponentPieces = if(state.whiteToMove) state.blackPieces else state.whitePieces
+        val rankToCheck = if(state.whiteToMove) RANK_5 else RANK_4
+        val attackingOurPawn = RookMoves.getAttackedFieldsMask(state,from) and rankToCheck
+        val attackingOpponentsPawn = RookMoves.getAttackedFieldsMask(state,if(state.whiteToMove) to - 8 else to+8) and rankToCheck
+
+        if((attackingOurPawn and ourPieces and state.kings != 0uL && attackingOpponentsPawn and opponentPieces and (state.rooks or state.queens) != 0uL) ||
+            (attackingOpponentsPawn and ourPieces and state.kings != 0uL && attackingOurPawn and opponentPieces and (state.rooks or state.queens) != 0uL))
+            return false
+        return true
+    }
+
     private fun precomputePawnAttacks(isWhite: Boolean): Array<ULong> {
         val attacks = Array(64) { 0uL }
 
@@ -94,7 +129,6 @@ object PawnMoves {
                 if ((bitboard and FILE_A) == 0uL) attackMoves = attackMoves or (bitboard shl 7)
                 if ((bitboard and FILE_H) == 0uL) attackMoves = attackMoves or (bitboard shl 9)
             } else {
-                // Czarne pionki atakują w dół
                 if ((bitboard and FILE_A) == 0uL) attackMoves = attackMoves or (bitboard shr 9)
                 if ((bitboard and FILE_H) == 0uL) attackMoves = attackMoves or (bitboard shr 7)
             }

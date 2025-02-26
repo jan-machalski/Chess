@@ -6,24 +6,27 @@ import model.BitboardState
 object KnightMoves {
     val KNIGHT_MOVES = precomputeKnightMoves()
 
-    fun generateKnightMoves(state: BitboardState): List<Move> {
-        val moves = mutableListOf<Move>()
+    fun generateKnightMoves(state: BitboardState, pinnedPieces:ULong, moves:MutableList<Move>,checkingFigurePos:Int){
+
         val isWhite = state.whiteToMove
-        var knights = if(isWhite) state.knights and state.whitePieces else state.knights and state.blackPieces
+        var knights = pinnedPieces.inv() and if(isWhite) state.knights and state.whitePieces else state.knights and state.blackPieces
         val ourPieces = if(isWhite) state.whitePieces else state.blackPieces
+        val ourKingPos = (ourPieces and state.kings).countTrailingZeroBits()
+        val availableSquares = ourPieces.inv()
+
 
         while(knights != 0uL){
             val from = knights.countTrailingZeroBits()
-            var possibleMoves = KNIGHT_MOVES[from] and ourPieces.inv()
+            var possibleMoves = KNIGHT_MOVES[from] and availableSquares
 
             while(possibleMoves != 0uL){
                 val to = possibleMoves.countTrailingZeroBits()
-                moves.add(Move.create(from,to,Move.PIECE_KNIGHT))
+                if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to])
+                    moves.add(Move.create(from,to,Move.PIECE_KNIGHT))
                 possibleMoves = possibleMoves and (possibleMoves - 1u)
             }
             knights = knights and (knights - 1u)
         }
-        return moves
     }
 
     private fun precomputeKnightMoves(): Array<ULong>{
