@@ -6,16 +6,17 @@ import model.BitboardState
 object KingMoves {
     val KING_MOVES = precomputeKingMoves()
 
-    fun generateKingMoves(state: BitboardState): List<Move>{
-        val moves = mutableListOf<Move>()
+    fun generateKingMoves(state: BitboardState,moves: MutableList<Move>){
         val isWhite = state.whiteToMove
         val king = if(isWhite) state.kings and state.whitePieces else state.kings and state.blackPieces
         val ourPieces = if(isWhite) state.whitePieces else state.blackPieces
+        val attackedFieldsMask = BitboardAnalyzer.getAttackedFields(state)
+        val nonAttackedFieldsMask = attackedFieldsMask.inv()
 
-        if(king == 0uL) return moves
+        if(king == 0uL) return
 
         val from = king.countTrailingZeroBits()
-        var possibleMoves = KING_MOVES[from] and ourPieces.inv()
+        var possibleMoves = KING_MOVES[from] and ourPieces.inv() and nonAttackedFieldsMask
 
         while(possibleMoves != 0uL){
             val to = possibleMoves.countTrailingZeroBits()
@@ -23,30 +24,29 @@ object KingMoves {
             possibleMoves = possibleMoves and (possibleMoves - 1uL)
         }
 
-        generateCastlingMoves(state,moves)
+        generateCastlingMoves(state,moves,nonAttackedFieldsMask)
 
-        return moves
     }
 
-    private fun generateCastlingMoves(state: BitboardState, moves: MutableList<Move>){
+    private fun generateCastlingMoves(state: BitboardState, moves: MutableList<Move>,nonAttackedFieldsMask:ULong){
         val isWhite = state.whiteToMove
         val castlingRights = state.castlingRights
         val emptySquares = (state.whitePieces or state.blackPieces).inv()
         val ourRooks = state.rooks and if(isWhite) state.whitePieces else state.blackPieces
 
         if(isWhite) {
-            if ((castlingRights and 0b01) != 0 && (emptySquares and 0x0000000000000060uL) == 0x0000000000000060uL && (ourRooks and 0x0000000000000080uL) != 0uL) {
+            if ((castlingRights and 0b01) != 0 && (emptySquares and 0x0000000000000060uL) == 0x0000000000000060uL && (nonAttackedFieldsMask and 0x0000000000000070uL) == 0x0000000000000070uL && (ourRooks and 0x0000000000000080uL) != 0uL) {
                 moves.add(Move.create(4, 6,Move.PIECE_KING))
             }
-            if((castlingRights and 0b10) != 0 && (emptySquares and 0x000000000000000EuL) == 0x000000000000000EuL && (ourRooks and 0x0000000000000001uL) != 0uL) {
+            if((castlingRights and 0b10) != 0 && (emptySquares and 0x000000000000000EuL) == 0x000000000000000EuL && (nonAttackedFieldsMask and 0x000000000000001CuL) == 0x000000000000001CuL && (ourRooks and 0x0000000000000001uL) != 0uL) {
                 moves.add(Move.create(4,2,Move.PIECE_KING))
             }
         }
         else{
-            if((castlingRights and 0b100) != 0 && (emptySquares and 0x6000000000000000uL) == 0x6000000000000000uL && (ourRooks and 0x8000000000000000uL) != 0uL) {
+            if((castlingRights and 0b100) != 0 && (emptySquares and 0x6000000000000000uL) == 0x6000000000000000uL && (nonAttackedFieldsMask and 0x7000000000000000uL) == 0x7000000000000000uL && (ourRooks and 0x8000000000000000uL) != 0uL) {
                 moves.add(Move.create(60, 62,Move.PIECE_KING))
             }
-            if((castlingRights and 0b1000) != 0 && (emptySquares and 0x0E00000000000000uL) == 0x0E00000000000000uL && (ourRooks and 0x0100000000000000uL) != 0uL) {
+            if((castlingRights and 0b1000) != 0 && (emptySquares and 0x0E00000000000000uL) == 0x0E00000000000000uL && (nonAttackedFieldsMask and 0x1C00000000000000uL) == 0x1C00000000000000uL && (ourRooks and 0x0100000000000000uL) != 0uL) {
                 moves.add(Move.create(60, 58,Move.PIECE_KING))
             }
         }
