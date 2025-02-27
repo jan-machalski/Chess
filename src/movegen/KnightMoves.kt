@@ -23,9 +23,9 @@ object KnightMoves {
                 val to = possibleMoves.countTrailingZeroBits()
                 if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to])
                     moves.add(Move.create(from,to,Move.PIECE_KNIGHT))
-                possibleMoves = possibleMoves and (possibleMoves - 1u)
+                possibleMoves = possibleMoves xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
             }
-            knights = knights and (knights - 1u)
+            knights = knights xor BitboardAnalyzer.SINGLE_BIT_MASKS[from]
         }
     }
 

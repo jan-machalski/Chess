@@ -1,7 +1,6 @@
 package test
 
 import movegen.MoveGenerator
-import model.BitboardState
 import model.FenParser
 import java.io.File
 

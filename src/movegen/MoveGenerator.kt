@@ -5,7 +5,7 @@ import model.Move
 
 object MoveGenerator {
 
-    fun generateLegalMoves(state: BitboardState): List<Move> {
+    fun generateLegalMoves(state: BitboardState): MutableList<Move> {
         val legalMoves = mutableListOf<Move>()
 
         val isWhite = state.whiteToMove

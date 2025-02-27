@@ -4,9 +4,10 @@ import model.BitboardState
 
 object BitboardAnalyzer {
     internal val SINGLE_BIT_MASKS = Array(64){1uL shl it}
-    internal val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [kingPos][move.from][move.to]
-    internal val BLOCK_MOVES_LOOKUP = precomputeBlockMoves() //[kingPos][attackerPos][move.to], true if such move prevents check
+    internal val PINNED_MOVES_LOOKUP = precomputePinnedMoves() // [ourKingPos][move.from][move.to], used for pinned pieces, true if the move does not uncover our king
+    internal val BLOCK_MOVES_LOOKUP = precomputeBlockMoves() //[ourKingPos][attackerPos][move.to], true if such move prevents check (block/capture). attackerPos = 64 -> no check, true everywhere
 
+    // return the mask of pinned pieces for the player to move
     internal fun getPinnedPieces(state: BitboardState): ULong{
         val ourPieces = if(state.whiteToMove) state.whitePieces else state.blackPieces
         val ourKing = ourPieces and state.kings
@@ -37,7 +38,8 @@ object BitboardAnalyzer {
 
         return pinnedPieces
     }
-    // return fields from which our king can be attacked
+
+    // return mask of opponents pieces from which our king is currently under check
     internal fun getChecks(state: BitboardState, kingPos: Int): ULong{
         var checks = 0uL
         val opponentPieces = if(state.whiteToMove) state.blackPieces else state.whitePieces
@@ -59,7 +61,8 @@ object BitboardAnalyzer {
 
         return checks
     }
-    //return mask of fields currently controlled by the opponent
+
+    //return mask of fields currently attacked by the opponent
     internal fun getAttackedFields(state:BitboardState):ULong{
         var attackedFields = 0uL
         val isWhite = state.whiteToMove

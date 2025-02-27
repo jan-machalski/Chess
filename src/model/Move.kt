@@ -14,6 +14,7 @@ value class Move(private val data: Int) {
         const val PROMOTION_BISHOP = 3
         const val PROMOTION_KNIGHT = 4
 
+        const val PIECE_NONE = 0
         const val PIECE_PAWN = 1
         const val PIECE_KNIGHT = 2
         const val PIECE_BISHOP = 3

@@ -21,7 +21,7 @@ object KingMoves {
         while(possibleMoves != 0uL){
             val to = possibleMoves.countTrailingZeroBits()
             moves.add(Move.create(from,to,Move.PIECE_KING))
-            possibleMoves = possibleMoves and (possibleMoves - 1uL)
+            possibleMoves = possibleMoves xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
 
         generateCastlingMoves(state,moves,nonAttackedFieldsMask)

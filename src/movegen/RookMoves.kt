@@ -30,9 +30,9 @@ object RookMoves {
                     (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
                     moves.add(Move.create(from, to, movedPiece))
                 }
-                possibleMoves = possibleMoves and (possibleMoves - 1uL)
+                possibleMoves = possibleMoves xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
             }
-            rooks = rooks and (rooks - 1uL)
+            rooks = rooks xor BitboardAnalyzer.SINGLE_BIT_MASKS[from]
         }
 
     }

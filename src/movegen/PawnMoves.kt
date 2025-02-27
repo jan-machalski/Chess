@@ -1,4 +1,5 @@
 package movegen
+
 import model.Move
 import model.BitboardState
 
@@ -10,8 +11,8 @@ object PawnMoves {
     private const val FILE_A: ULong = 0x0101010101010101uL
     private const val FILE_H: ULong = 0x8080808080808080uL
 
-    val PAWN_ATTACKS_WHITE = precomputePawnAttacks(isWhite = true)
-    val PAWN_ATTACKS_BLACK = precomputePawnAttacks(isWhite = false)
+    internal val PAWN_ATTACKS_WHITE = precomputePawnAttacks(isWhite = true)
+    internal val PAWN_ATTACKS_BLACK = precomputePawnAttacks(isWhite = false)
 
     fun generatePawnMoves(state: BitboardState,pinnedPieces: ULong,moves:MutableList<Move>,checkingFigurePos:Int) {
         val isWhite = state.whiteToMove
@@ -34,7 +35,7 @@ object PawnMoves {
                 (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
                 addPromotionMoves(moves, from, to, isWhite)
             }
-            singlePushes = singlePushes and (singlePushes - 1uL)
+            singlePushes = singlePushes xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
 
         var doublePushes = if (isWhite) {
@@ -51,7 +52,7 @@ object PawnMoves {
                 (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
                 moves.add(Move.create(from, to, Move.PIECE_PAWN))
             }
-            doublePushes = doublePushes and (doublePushes - 1uL)
+            doublePushes = doublePushes xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
 
         generateCaptures(moves, ourPawns, enemyPieces, leftCaptureShift, FILE_A.inv(), isWhite, ourKingPos, checkingFigurePos,pinnedPieces, false,state)
@@ -88,7 +89,7 @@ object PawnMoves {
                 if(!isEnPassant || isEnPassantValid(state,from,to))
                     addPromotionMoves(moves, from, to, isWhite)
             }
-            captures = captures and (captures - 1uL)
+            captures = captures xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
     }
 
