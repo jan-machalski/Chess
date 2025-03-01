@@ -20,7 +20,7 @@ object KingMoves {
 
         while(possibleMoves != 0uL){
             val to = possibleMoves.countTrailingZeroBits()
-            moves.add(Move.create(from,to,Move.PIECE_KING))
+            moves.add(Move.create(from,to,Move.PIECE_KING,state.getPieceAt(to)))
             possibleMoves = possibleMoves xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
 
@@ -36,18 +36,18 @@ object KingMoves {
 
         if(isWhite) {
             if ((castlingRights and 0b01) != 0 && (emptySquares and 0x0000000000000060uL) == 0x0000000000000060uL && (nonAttackedFieldsMask and 0x0000000000000070uL) == 0x0000000000000070uL && (ourRooks and 0x0000000000000080uL) != 0uL) {
-                moves.add(Move.create(4, 6,Move.PIECE_KING))
+                moves.add(Move.create(4, 6,Move.PIECE_KING,Move.PIECE_NONE))
             }
             if((castlingRights and 0b10) != 0 && (emptySquares and 0x000000000000000EuL) == 0x000000000000000EuL && (nonAttackedFieldsMask and 0x000000000000001CuL) == 0x000000000000001CuL && (ourRooks and 0x0000000000000001uL) != 0uL) {
-                moves.add(Move.create(4,2,Move.PIECE_KING))
+                moves.add(Move.create(4,2,Move.PIECE_KING,Move.PIECE_NONE))
             }
         }
         else{
             if((castlingRights and 0b100) != 0 && (emptySquares and 0x6000000000000000uL) == 0x6000000000000000uL && (nonAttackedFieldsMask and 0x7000000000000000uL) == 0x7000000000000000uL && (ourRooks and 0x8000000000000000uL) != 0uL) {
-                moves.add(Move.create(60, 62,Move.PIECE_KING))
+                moves.add(Move.create(60, 62,Move.PIECE_KING,Move.PIECE_NONE))
             }
             if((castlingRights and 0b1000) != 0 && (emptySquares and 0x0E00000000000000uL) == 0x0E00000000000000uL && (nonAttackedFieldsMask and 0x1C00000000000000uL) == 0x1C00000000000000uL && (ourRooks and 0x0100000000000000uL) != 0uL) {
-                moves.add(Move.create(60, 58,Move.PIECE_KING))
+                moves.add(Move.create(60, 58,Move.PIECE_KING,Move.PIECE_NONE))
             }
         }
 

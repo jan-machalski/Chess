@@ -22,7 +22,7 @@ object KnightMoves {
             while(possibleMoves != 0uL){
                 val to = possibleMoves.countTrailingZeroBits()
                 if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to])
-                    moves.add(Move.create(from,to,Move.PIECE_KNIGHT))
+                    moves.add(Move.create(from,to,Move.PIECE_KNIGHT,state.getPieceAt(to)))
                 possibleMoves = possibleMoves xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
             }
             knights = knights xor BitboardAnalyzer.SINGLE_BIT_MASKS[from]

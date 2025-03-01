@@ -33,7 +33,7 @@ object PawnMoves {
             val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
             if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
                 (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
-                addPromotionMoves(moves, from, to, isWhite)
+                addPromotionMoves(moves, from, to, isWhite,state.getPieceAt(to))
             }
             singlePushes = singlePushes xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
@@ -50,7 +50,7 @@ object PawnMoves {
             val isPinned = (BitboardAnalyzer.SINGLE_BIT_MASKS[from] and pinnedPieces) != 0uL
             if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
                 (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
-                moves.add(Move.create(from, to, Move.PIECE_PAWN))
+                moves.add(Move.create(from, to, Move.PIECE_PAWN,Move.PIECE_NONE))
             }
             doublePushes = doublePushes xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
@@ -87,21 +87,21 @@ object PawnMoves {
                 (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
 
                 if(!isEnPassant || isEnPassantValid(state,from,to))
-                    addPromotionMoves(moves, from, to, isWhite)
+                    addPromotionMoves(moves, from, to, isWhite,state.getPieceAt(to))
             }
             captures = captures xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
         }
     }
 
-    private fun addPromotionMoves(moves: MutableList<Move>, from: Int, to: Int, isWhite: Boolean) {
+    private fun addPromotionMoves(moves: MutableList<Move>, from: Int, to: Int, isWhite: Boolean,capturedPieceType: Int) {
         val isPromotion = (isWhite && to in 56..63) || (!isWhite && to in 0..7)
         if (isPromotion) {
-            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_QUEEN))
-            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_ROOK))
-            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_BISHOP))
-            moves.add(Move.create(from, to,Move.PIECE_PAWN, Move.PROMOTION_KNIGHT))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN,capturedPieceType, Move.PIECE_QUEEN))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN,capturedPieceType, Move.PIECE_ROOK))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN,capturedPieceType, Move.PIECE_BISHOP))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN,capturedPieceType, Move.PIECE_KNIGHT))
         } else {
-            moves.add(Move.create(from, to,Move.PIECE_PAWN))
+            moves.add(Move.create(from, to,Move.PIECE_PAWN,capturedPieceType))
         }
     }
 

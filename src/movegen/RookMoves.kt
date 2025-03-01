@@ -28,7 +28,7 @@ object RookMoves {
 
                 if(BitboardAnalyzer.BLOCK_MOVES_LOOKUP[ourKingPos][checkingFigurePos][to] &&
                     (!isPinned || BitboardAnalyzer.PINNED_MOVES_LOOKUP[ourKingPos][from][to])) {
-                    moves.add(Move.create(from, to, movedPiece))
+                    moves.add(Move.create(from, to, movedPiece,state.getPieceAt(to)))
                 }
                 possibleMoves = possibleMoves xor BitboardAnalyzer.SINGLE_BIT_MASKS[to]
             }

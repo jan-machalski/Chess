@@ -17,13 +17,13 @@ object BitboardAnalyzer {
         var opponentRooks = opponentPieces and (state.rooks or state.queens) and RookMoves.ROW_COLUMN_MASKS[ourKingPos]
         var opponentBishops = opponentPieces and (state.bishops or state.queens) and BishopMoves.DIAGONAL_MASKS[ourKingPos]
 
-        val potentialRookBlockers = RookMoves.getAttackedFieldsMask(state,ourKingPos)
-        val potentialBishopBlockers = BishopMoves.getAttackedFieldsMask(state,ourKingPos)
+        val potentialRookBlockers = RookMoves.getAttackedFieldsMask(state, ourKingPos)
+        val potentialBishopBlockers = BishopMoves.getAttackedFieldsMask(state, ourKingPos)
 
         var rookAttackedPieces = 0uL
         while(opponentRooks != 0uL){
             val pos = opponentRooks.countTrailingZeroBits()
-            rookAttackedPieces = rookAttackedPieces or RookMoves.getAttackedFieldsMask(state,pos)
+            rookAttackedPieces = rookAttackedPieces or RookMoves.getAttackedFieldsMask(state, pos)
             opponentRooks = opponentRooks xor SINGLE_BIT_MASKS[pos]
         }
         var pinnedPieces = rookAttackedPieces and potentialRookBlockers
@@ -31,7 +31,7 @@ object BitboardAnalyzer {
         var bishopAttackedPieces = 0uL
         while(opponentBishops != 0uL){
             val pos = opponentBishops.countTrailingZeroBits()
-            bishopAttackedPieces = bishopAttackedPieces or BishopMoves.getAttackedFieldsMask(state,pos)
+            bishopAttackedPieces = bishopAttackedPieces or BishopMoves.getAttackedFieldsMask(state, pos)
             opponentBishops = opponentBishops xor SINGLE_BIT_MASKS[pos]
         }
         pinnedPieces = pinnedPieces or (bishopAttackedPieces and potentialBishopBlockers)
@@ -40,8 +40,9 @@ object BitboardAnalyzer {
     }
 
     // return mask of opponents pieces from which our king is currently under check
-    internal fun getChecks(state: BitboardState, kingPos: Int): ULong{
+    fun getChecks(state: BitboardState): ULong{
         var checks = 0uL
+        val kingPos = (state.kings and if(state.whiteToMove) state.whitePieces else state.blackPieces).countTrailingZeroBits()
         val opponentPieces = if(state.whiteToMove) state.blackPieces else state.whitePieces
         val allPieces = (state.blackPieces or state.whitePieces) and
                 (state.kings and if (state.whiteToMove) state.whitePieces else state.blackPieces).inv()
@@ -63,7 +64,7 @@ object BitboardAnalyzer {
     }
 
     //return mask of fields currently attacked by the opponent
-    internal fun getAttackedFields(state:BitboardState):ULong{
+    fun getAttackedFields(state: BitboardState):ULong{
         var attackedFields = 0uL
         val isWhite = state.whiteToMove
         val opponentPieces = if(isWhite) state.blackPieces else state.whitePieces
@@ -92,20 +93,32 @@ object BitboardAnalyzer {
         var rooks = opponentPieces and (state.rooks or state.queens)
         while(rooks != 0uL){
             val field = rooks.countTrailingZeroBits()
-            attackedFields = attackedFields or RookMoves.getAttackedFieldsMask(state,field)
+            attackedFields = attackedFields or RookMoves.getAttackedFieldsMask(state, field)
             rooks = rooks xor SINGLE_BIT_MASKS[field]
         }
 
         var bishops = opponentPieces and (state.bishops or state.queens)
         while(bishops != 0uL){
             val field = bishops.countTrailingZeroBits()
-            attackedFields = attackedFields or BishopMoves.getAttackedFieldsMask(state,field)
+            attackedFields = attackedFields or BishopMoves.getAttackedFieldsMask(state, field)
             bishops = bishops xor SINGLE_BIT_MASKS[field]
         }
 
         state.kings = ourKing or oppKing
         if(isWhite) state.whitePieces = state.whitePieces or ourKing else state.blackPieces = state.blackPieces or ourKing
         return attackedFields
+    }
+
+    fun getPawnAttackedFields(state: BitboardState): ULong{
+        var pawns = state.pawns and if(state.whiteToMove) state.blackPieces else state.whitePieces
+        var attackedFieldsMask = 0uL
+
+        while(pawns != 0uL){
+            val pawn = pawns.countTrailingZeroBits()
+            attackedFieldsMask = attackedFieldsMask or if(state.whiteToMove) PawnMoves.PAWN_ATTACKS_BLACK[pawn] else PawnMoves.PAWN_ATTACKS_WHITE[pawn]
+            pawns = pawns xor SINGLE_BIT_MASKS[pawn]
+        }
+        return attackedFieldsMask
     }
 
     private fun precomputePinnedMoves(): Array<Array<Array<Boolean>>> {

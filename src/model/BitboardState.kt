@@ -43,14 +43,7 @@ data class BitboardState(
         val isWhite = this.whiteToMove
         val opponentPieces = if(isWhite) this.blackPieces else this.whitePieces
 
-        val capturedPieceType = when {
-            (pawns and toMask) != 0uL -> Move.PIECE_PAWN
-            (knights and toMask) != 0uL -> Move.PIECE_KNIGHT
-            (bishops and toMask) != 0uL -> Move.PIECE_BISHOP
-            (rooks and toMask) != 0uL -> Move.PIECE_ROOK
-            (queens and toMask) != 0uL -> Move.PIECE_QUEEN
-            else -> Move.PIECE_NONE
-        }
+        val capturedPieceType = move.capturedPieceType
         moveHistory.addLast(
             MoveUndoData(
                 move = move,
@@ -64,11 +57,13 @@ data class BitboardState(
         // capture - clear the field to which a piece is being moved
         if(opponentPieces and toMask != 0uL){
             val invMask = toMask.inv()
-            pawns = pawns and invMask
-            knights = knights and invMask
-            bishops = bishops and invMask
-            rooks = rooks and invMask
-            queens = queens and invMask
+            when(capturedPieceType){
+                Move.PIECE_PAWN -> pawns = pawns and invMask
+                Move.PIECE_KNIGHT -> knights = knights and invMask
+                Move.PIECE_BISHOP -> bishops = bishops and invMask
+                Move.PIECE_ROOK -> rooks = rooks and invMask
+                Move.PIECE_QUEEN -> queens = queens and invMask
+            }
             if(isWhite) blackPieces = blackPieces xor toMask
             else whitePieces = whitePieces xor toMask
             halfMoveClock = 0
@@ -144,12 +139,12 @@ data class BitboardState(
         }
 
         // promotion
-        if(move.promotionType != Move.PROMOTION_NONE) {
+        if(move.promotionType != Move.PIECE_NONE) {
             when(move.promotionType){
-                Move.PROMOTION_KNIGHT -> knights = knights or toMask
-                Move.PROMOTION_ROOK -> rooks = rooks or toMask
-                Move.PROMOTION_QUEEN -> queens = queens or toMask
-                Move.PROMOTION_BISHOP -> bishops = bishops or toMask
+                Move.PIECE_KNIGHT -> knights = knights or toMask
+                Move.PIECE_ROOK -> rooks = rooks or toMask
+                Move.PIECE_QUEEN -> queens = queens or toMask
+                Move.PIECE_BISHOP -> bishops = bishops or toMask
             }
             pawns = pawns xor toMask
         }
@@ -175,7 +170,7 @@ data class BitboardState(
         val isWhite = !this.whiteToMove
 
         // move the piece back
-        if(undoData.move.promotionType == Move.PROMOTION_NONE) {
+        if(undoData.move.promotionType == Move.PIECE_NONE) {
             when (undoData.move.pieceType) {
                 Move.PIECE_PAWN -> pawns = pawns xor moveMask
                 Move.PIECE_KNIGHT -> knights = knights xor moveMask
@@ -187,10 +182,10 @@ data class BitboardState(
         }
         else{
             when(undoData.move.promotionType){
-                Move.PROMOTION_QUEEN -> queens = queens xor toMask
-                Move.PROMOTION_ROOK -> rooks = rooks xor toMask
-                Move.PROMOTION_KNIGHT -> knights = knights xor toMask
-                Move.PROMOTION_BISHOP -> bishops = bishops xor toMask
+                Move.PIECE_QUEEN -> queens = queens xor toMask
+                Move.PIECE_ROOK -> rooks = rooks xor toMask
+                Move.PIECE_KNIGHT -> knights = knights xor toMask
+                Move.PIECE_BISHOP -> bishops = bishops xor toMask
             }
             pawns = pawns or fromMask
         }
@@ -219,23 +214,21 @@ data class BitboardState(
 
         //move the rook back after castling
         if (undoData.move.pieceType == Move.PIECE_KING) {
-            when (undoData.move.from to undoData.move.to) {
-                4 to 6 -> {
-                    rooks = rooks xor WHITE_KING_CASTLE_MASK
-                    whitePieces = whitePieces xor WHITE_KING_CASTLE_MASK
-                }
-                4 to 2 -> {
-                    rooks = rooks xor WHITE_QUEEN_CASTLE_MASK
-                    whitePieces = whitePieces xor WHITE_QUEEN_CASTLE_MASK
-                }
-                60 to 62 -> {
-                    rooks = rooks xor BLACK_KING_CASTLE_MASK
-                    blackPieces = blackPieces xor BLACK_KING_CASTLE_MASK
-                }
-                60 to 58 -> {
-                    rooks = rooks xor BLACK_QUEEN_CASTLE_MASK
-                    blackPieces = blackPieces xor BLACK_QUEEN_CASTLE_MASK
-                }
+            val from = undoData.move.from
+            val to = undoData.move.to
+
+            if (from == 4 && to == 6) {
+                rooks = rooks xor WHITE_KING_CASTLE_MASK
+                whitePieces = whitePieces xor WHITE_KING_CASTLE_MASK
+            } else if (from == 4 && to == 2) {
+                rooks = rooks xor WHITE_QUEEN_CASTLE_MASK
+                whitePieces = whitePieces xor WHITE_QUEEN_CASTLE_MASK
+            } else if (from == 60 && to == 62) {
+                rooks = rooks xor BLACK_KING_CASTLE_MASK
+                blackPieces = blackPieces xor BLACK_KING_CASTLE_MASK
+            } else if (from == 60 && to == 58) {
+                rooks = rooks xor BLACK_QUEEN_CASTLE_MASK
+                blackPieces = blackPieces xor BLACK_QUEEN_CASTLE_MASK
             }
         }
 
@@ -261,11 +254,13 @@ data class BitboardState(
         // capture - clear the field to which a piece is being moved
         if(opponentPieces and toMask != 0uL){
             val invMask = toMask.inv()
-            newState.pawns = newState.pawns and invMask
-            newState.knights = newState.knights and invMask
-            newState.bishops = newState.bishops and invMask
-            newState.rooks = newState.rooks and invMask
-            newState.queens = newState.queens and invMask
+            when(move.capturedPieceType){
+                Move.PIECE_PAWN -> newState.pawns = newState.pawns and invMask
+                Move.PIECE_KNIGHT -> newState.knights = newState.knights and invMask
+                Move.PIECE_BISHOP -> newState.bishops = newState.bishops and invMask
+                Move.PIECE_ROOK -> newState.rooks = newState.rooks and invMask
+                Move.PIECE_QUEEN -> newState.queens = newState.queens and invMask
+            }
             if(isWhite) newState.blackPieces = newState.blackPieces xor toMask
             else newState.whitePieces = newState.whitePieces xor toMask
             newState.halfMoveClock = 0
@@ -342,12 +337,12 @@ data class BitboardState(
         }
 
         // promotion
-        if(move.promotionType != Move.PROMOTION_NONE) {
+        if(move.promotionType != Move.PIECE_NONE) {
             when(move.promotionType){
-                Move.PROMOTION_KNIGHT -> newState.knights = newState.knights or toMask
-                Move.PROMOTION_ROOK -> newState.rooks = newState.rooks or toMask
-                Move.PROMOTION_QUEEN -> newState.queens = newState.queens or toMask
-                Move.PROMOTION_BISHOP -> newState.bishops = newState.bishops or toMask
+                Move.PIECE_KNIGHT -> newState.knights = newState.knights or toMask
+                Move.PIECE_ROOK -> newState.rooks = newState.rooks or toMask
+                Move.PIECE_QUEEN -> newState.queens = newState.queens or toMask
+                Move.PIECE_BISHOP -> newState.bishops = newState.bishops or toMask
             }
             newState.pawns = newState.pawns xor toMask
         }
@@ -360,5 +355,15 @@ data class BitboardState(
 
         return newState
 
+    }
+    fun getPieceAt(field: Int):Int{
+        val pos = 1uL shl field
+        if(pos and pawns != 0uL) return Move.PIECE_PAWN
+        if(pos and knights != 0uL) return Move.PIECE_KNIGHT
+        if(pos and bishops != 0uL) return Move.PIECE_BISHOP
+        if(pos and rooks != 0uL) return Move.PIECE_ROOK
+        if(pos and queens != 0uL) return Move.PIECE_QUEEN
+        if(pos and kings != 0uL) return Move.PIECE_KING
+        return Move.PIECE_NONE
     }
 }

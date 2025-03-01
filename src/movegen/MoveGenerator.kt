@@ -8,10 +8,7 @@ object MoveGenerator {
     fun generateLegalMoves(state: BitboardState): MutableList<Move> {
         val legalMoves = mutableListOf<Move>()
 
-        val isWhite = state.whiteToMove
-        val kingPos = (state.kings and if(isWhite) state.whitePieces else state.blackPieces).countTrailingZeroBits()
-
-        val checkingFigures = BitboardAnalyzer.getChecks(state,kingPos)
+        val checkingFigures = BitboardAnalyzer.getChecks(state)
         val checkingFiguresCount = checkingFigures.countOneBits()
 
         KingMoves.generateKingMoves(state,legalMoves)
